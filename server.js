@@ -2,8 +2,8 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const app = require("./app");
 
-const DB_URI =
-  "mongodb+srv://kludan:mongo1995@cluster0.dhazxci.mongodb.net/db-contacts?retryWrites=true&w=majority";
+const DB_URI = process.env.DB_URI;
+
 mongoose.set("strictQuery", true);
 mongoose
   .connect(DB_URI)
