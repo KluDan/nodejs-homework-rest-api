@@ -5,7 +5,33 @@ const { HttpError, ctrlWrapper } = require("../utils");
 const getAll = async (req, res, next) => {
   console.log({ user: req.user });
 
-  const contacts = await Contact.find({ owner: req.user.id }).exec();
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
+
+  const favoriteFilter =
+    req.query.favorite === "false"
+      ? false
+      : req.query.favorite === "true"
+      ? true
+      : undefined;
+
+  const query = { owner: req.user.id };
+
+  if (typeof favoriteFilter !== "undefined") {
+    query.favorite = favoriteFilter;
+  }
+
+  const totalContacts = await Contact.countDocuments({ owner: req.user.id });
+
+  if (skip >= totalContacts)
+    throw HttpError(404, "Requested page is beyond the available range");
+
+  const contacts = await Contact.find(query).limit(limit).skip(skip).exec();
+
+  if (contacts.length === 0 && page === 1)
+    throw HttpError(404, "No contacts found with the specified criteria");
+
   res.send(contacts);
 };
 

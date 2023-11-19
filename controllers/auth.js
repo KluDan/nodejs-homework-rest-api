@@ -57,9 +57,28 @@ const current = async (req, res, next) => {
     .send({ email: currentUser.email, subscription: currentUser.subscription });
 };
 
+const updateSubscription = async (req, res, next) => {
+  const allowedSubscriptions = ["starter", "pro", "business"];
+  const { subscription } = req.body;
+
+  if (!subscription || !allowedSubscriptions.includes(subscription))
+    throw HttpError(400, "Invalid subscription value");
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user.id,
+    { subscription },
+    { new: true }
+  );
+
+  if (!updatedUser) throw HttpError(404, "User not found");
+
+  res.send({ subscription: updatedUser.subscription });
+};
+
 module.exports = {
   register: ctrlWrapper(register),
   login: ctrlWrapper(login),
   logout: ctrlWrapper(logout),
   current: ctrlWrapper(current),
+  updateSubscription: ctrlWrapper(updateSubscription),
 };
