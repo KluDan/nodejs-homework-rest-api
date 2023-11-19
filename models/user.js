@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
       required: [true, "Email is required"],
       unique: true,
     },
-    /*     subscription: {
+    subscription: {
       type: String,
       enum: ["starter", "pro", "business"],
       default: "starter",
@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema(
     token: {
       type: String,
       default: null,
-    }, */
+    },
   },
   {
     versionKey: false,
