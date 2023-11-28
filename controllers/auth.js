@@ -1,10 +1,14 @@
 const bcrypt = require("bcrypt");
-
 const jwt = require("jsonwebtoken");
+const gravatar = require("gravatar");
+const Jimp = require("jimp");
+
+const path = require("node:path");
+const fs = require("node:fs/promises");
 
 const User = require("../models/user");
-
 const { HttpError, ctrlWrapper } = require("../utils");
+const avatarsDir = path.join(__dirname, "../", "public", "avatars");
 
 const register = async (req, res, next) => {
   const { email, password } = req.body;
@@ -14,8 +18,8 @@ const register = async (req, res, next) => {
   if (user !== null) throw HttpError(409, "Email in use");
 
   const passwordHash = await bcrypt.hash(password, 10);
-
-  await User.create({ email, password: passwordHash });
+  const avatarURL = gravatar.url(email);
+  await User.create({ email, password: passwordHash, avatarURL });
 
   res.status(201).send({ message: "Registration successfully" });
 };
@@ -32,12 +36,20 @@ const login = async (req, res, next) => {
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
     expiresIn: 60 * 60,
   });
-  User.findByIdAndUpdate(user._id, { token }).exec();
+  const updatedUser = await User.findByIdAndUpdate(
+    user._id,
+    { token },
+    { new: true }
+  ).exec();
+
+  if (!updatedUser) {
+    throw new Error("Failed to update user's token.");
+  }
   res.status(200).send({
-    token,
+    token: updatedUser.token,
     user: {
-      email: user.email,
-      subscription: user.subscription,
+      email: updatedUser.email,
+      subscription: updatedUser.subscription,
     },
   });
 };
@@ -75,10 +87,37 @@ const updateSubscription = async (req, res, next) => {
   res.send({ subscription: updatedUser.subscription });
 };
 
+const updateAvatar = async (req, res, next) => {
+  const { id } = req.user;
+
+  if (!req.file) {
+    return res.status(400).send({
+      message:
+        "No file uploaded. Please attach an image file for avatar update.",
+    });
+  }
+
+  const { path: tempUpload, originalname } = req.file;
+
+  const avatar = await Jimp.read(tempUpload);
+  await avatar.resize(250, 250);
+  await avatar.writeAsync(tempUpload);
+
+  const filename = `${id}_${originalname}`;
+  const resultUpload = path.join(avatarsDir, filename);
+  await fs.rename(tempUpload, resultUpload);
+
+  const avatarURL = path.join("avatars", filename);
+  await User.findByIdAndUpdate(id, { avatarURL });
+
+  res.send({ avatarURL });
+};
+
 module.exports = {
   register: ctrlWrapper(register),
   login: ctrlWrapper(login),
   logout: ctrlWrapper(logout),
   current: ctrlWrapper(current),
   updateSubscription: ctrlWrapper(updateSubscription),
+  updateAvatar: ctrlWrapper(updateAvatar),
 };
